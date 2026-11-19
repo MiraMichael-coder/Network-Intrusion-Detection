@@ -6,9 +6,11 @@ matplotlib.use("Agg")  # save files only, no window
 import matplotlib.pyplot as plt
 from sklearn.metrics import (ConfusionMatrixDisplay, accuracy_score, average_precision_score,
                              confusion_matrix, f1_score, precision_score, recall_score,
-                             roc_auc_score)
+                             make_scorer, roc_auc_score)
+from sklearn.model_selection import StratifiedKFold, cross_validate
+import pandas as pd
 
-from src.config import ROOT
+from src.config import ROOT, SEED
 
 RESULTS = ROOT / "results"
 
@@ -64,4 +66,44 @@ def evaluate(name, fitted_model, X, y, split):
         if new_file:
             writer.writeheader()
         writer.writerow(row)
+    return row
+
+
+def _fpr(y, pred):
+    """False positive rate: share of normal traffic (label 0) wrongly flagged as attack."""
+    # Row 0 of the confusion matrix holds the true negatives and false positives.
+    tn, fp = confusion_matrix(y, pred, labels=[0, 1])[0]
+    # Guard against a fold with no normal samples (would divide by zero).
+    return fp / (fp + tn) if fp + tn else 0.0
+
+
+def cv_evaluate(name, pipeline, X, y):
+    """5-fold stratified CV of an unfitted pipeline; appends mean/std as a split="cv" row."""
+    # Metrics to compute on each fold. Strings are built-in sklearn scorers;
+    # FPR has no built-in scorer, so we wrap our own function with make_scorer.
+    # Keys match the column names evaluate() uses so rows line up in metrics.csv.
+    scoring = {"accuracy": "accuracy", "precision": "precision", "recall": "recall",
+               "f1": "f1", "fpr": make_scorer(_fpr), "roc_auc": "roc_auc",
+               "pr_auc": "average_precision"}
+    # Stratified folds keep the attack/normal ratio the same in every fold;
+    # shuffling with the shared SEED makes the folds repeatable.
+    cv = StratifiedKFold(5, shuffle=True, random_state=SEED)
+    # Fits a fresh copy of the pipeline on each fold (so preprocessing is learned
+    # only from that fold's training part) and scores it on the held-out part.
+    # n_jobs=-1 runs the folds in parallel on all CPU cores.
+    res = cross_validate(pipeline, X, y, cv=cv, scoring=scoring, n_jobs=-1)
+
+    # Summarise the 5 fold scores: the mean is the estimate, the std shows how stable it is.
+    row = {"model": name, "split": "cv"}
+    for key in scoring:
+        row[key] = res[f"test_{key}"].mean()
+        row[f"{key}_std"] = res[f"test_{key}"].std()
+    row["fit_seconds"] = res["fit_time"].mean()
+    row["fit_seconds_std"] = res["fit_time"].std()
+
+    # cv rows add *_std columns, so rewrite with the union of columns instead of a plain csv append
+    metrics_path = RESULTS / "metrics.csv"
+    RESULTS.mkdir(exist_ok=True)
+    old = pd.read_csv(metrics_path) if metrics_path.exists() else pd.DataFrame()
+    pd.concat([old, pd.DataFrame([row])], ignore_index=True).to_csv(metrics_path, index=False)
     return row

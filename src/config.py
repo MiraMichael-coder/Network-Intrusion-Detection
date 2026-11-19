@@ -8,8 +8,9 @@ SEED = 42
 ROOT = Path(__file__).resolve().parent.parent
 
 # The official UNSW-NB15 files. Put them in data/raw/ (the data/ folder is not in git).
-TRAIN_PATH = ROOT / "raw" / "UNSW_NB15_training-set.csv"  # 175,341 rows
-TEST_PATH = ROOT  / "raw" / "UNSW_NB15_testing-set.csv"    # 82,332 rows
+TRAIN_PATH = ROOT / "data" / "raw" / "UNSW_NB15_training-set.csv"  # 175,341 rows
+TEST_PATH = ROOT / "data" / "raw" / "UNSW_NB15_testing-set.csv"    # 82,332 rows
+
 
 # Text columns that must be one-hot encoded (inside the Pipeline, never before it).
 CAT_COLS = ["proto", "service", "state"]
