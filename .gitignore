@@ -5,3 +5,6 @@ UNSW_NB15_testing-set.csv
 UNSW-NB15_features.csv
 .ipynb_checkpoints/
 __pycache__/
+.vscode/settings.json
+context
+src/_t
