@@ -10,14 +10,14 @@ CAT_COLS = ["proto", "service", "state"]
 EXCLUDED_COLS = ["id", "attack_cat", "label"]
 
 
-def create_preprocessor(numerical_columns):
+def create_preprocessor(numerical_columns, scale=True):
     """Create the shared numerical and categorical preprocessor."""
 
     categorical_transformer = OneHotEncoder(
         handle_unknown="ignore"
     )
 
-    numerical_transformer = StandardScaler()
+    numerical_transformer = StandardScaler() if scale else "passthrough"
 
     preprocessor = ColumnTransformer(
         transformers=[
